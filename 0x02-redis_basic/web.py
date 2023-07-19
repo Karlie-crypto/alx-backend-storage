@@ -2,35 +2,41 @@
 """
 web cache and tracker
 """
-import requests
+
 import redis
+import requests
 from functools import wraps
 
-store = redis.Redis()
+r = redis.Redis()
 
 
-def count_url_access(method):
-    """ Decorator counting how many times
-    a URL is accessed """
+def url_access_count(method):
+    """decorator for get_page function"""
     @wraps(method)
     def wrapper(url):
-        cached_key = "cached:" + url
-        cached_data = store.get(cached_key)
-        if cached_data:
-            return cached_data.decode("utf-8")
+        """wrapper function"""
+        key = "cached:" + url
+        cached_value = r.get(key)
+        if cached_value:
+            return cached_value.decode("utf-8")
 
-        count_key = "count:" + url
-        html = method(url)
+            # Get new content and update cache
+        key_count = "count:" + url
+        html_content = method(url)
 
-        store.incr(count_key)
-        store.set(cached_key, html)
-        store.expire(cached_key, 10)
-        return html
+        r.incr(key_count)
+        r.set(key, html_content, ex=10)
+        r.expire(key, 10)
+        return html_content
     return wrapper
 
 
-@count_url_access
+@url_access_count
 def get_page(url: str) -> str:
-    """ Returns HTML content of a url """
-    res = requests.get(url)
-    return res.text
+    """obtain the HTML content of a particular"""
+    results = requests.get(url)
+    return results.text
+
+
+if __name__ == "__main__":
+    get_page('http://slowwly.robertomurray.co.uk')
